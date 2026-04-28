@@ -50,7 +50,7 @@ This build is intentionally scoped as an **MVP**: core flows are working end-to-
   <tr>
     <td align="center"><img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25%20(3).jpeg" alt="Settings" width="210" /><br/>Settings</td>
     <td align="center"><img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25.jpeg" alt="Onboarding/Login" width="210" /><br/>Onboarding/Login</td>
-    <td></td>
+        <td align="center"><img src="screenshots/mindmap.png" alt="Architecture" width="210" /><br/>Architecture</td>
   </tr>
 </table>
 
