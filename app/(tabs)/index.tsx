@@ -1,303 +1,395 @@
-﻿import { Audio } from "expo-av";
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Animated,
-  Easing,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+﻿import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View } from "react-native";
+import { useIsFocused } from "@react-navigation/native";
+import * as Haptics from "expo-haptics";
 import { supabase } from "../../lib/supabase";
+import { theme } from "../../lib/theme";
+import type { GlucoseReading, MealPlanRow } from "../../lib/types";
 
-type AgentResponse = {
-  replyText: string;
-  audioBase64?: string | null;
-  actions?: Array<{ tool: string; ok: boolean; detail: string }>;
-  proactivePrompt?: string | null;
-};
+export default function DashboardScreen() {
+  const isFocused = useIsFocused();
+  const router = useRouter();
+  const [glucose, setGlucose] = useState<GlucoseReading[]>([]);
+  const [todayMealCount, setTodayMealCount] = useState(0);
+  const [nextMeal, setNextMeal] = useState<string>("Build plan");
+  const [glp1Mode, setGlp1Mode] = useState(false);
+  const [glpBusy, setGlpBusy] = useState(false);
+  const [timingInsight, setTimingInsight] = useState("No timing pattern yet.");
+  const [weekPattern, setWeekPattern] = useState("Keep logging meals to unlock weekly coaching memory.");
+  const [proteinAlert, setProteinAlert] = useState<string | null>(null);
 
-function usePulse(active: boolean) {
-  const value = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    if (!active) {
-      value.setValue(1);
-      return;
-    }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(value, {
-          toValue: 1.08,
-          duration: 560,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(value, {
-          toValue: 1,
-          duration: 560,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [active, value]);
-  return value;
-}
+  async function load() {
+    const now = new Date();
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay())
+      .toISOString()
+      .slice(0, 10);
 
-export default function VoiceAgentScreen() {
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
-  const [status, setStatus] = useState("Ready");
-  const [lastReply, setLastReply] = useState(
-    "Hi, I am your GlucoSync voice agent. Tap and hold to speak.",
-  );
-  const [proactive, setProactive] = useState<string | null>(null);
-  const [actions, setActions] = useState<Array<{ tool: string; ok: boolean; detail: string }>>([]);
+    const [g, m, p, profile, meals, recentGlucose] = await Promise.all([
+      supabase.from("glucose_readings").select("id,ts,mg_dl,source").order("ts", { ascending: false }).limit(16),
+      supabase.from("meal_logs").select("id").gte("created_at", dayStart),
+      supabase.from("meal_plans").select("id,week_start,plan_json").eq("week_start", weekStart).maybeSingle(),
+      supabase.from("profiles").select("glp1_mode").maybeSingle(),
+      supabase
+        .from("meal_logs")
+        .select("created_at,parsed_json")
+        .order("created_at", { ascending: false })
+        .limit(120),
+      supabase
+        .from("glucose_readings")
+        .select("mg_dl,ts")
+        .order("ts", { ascending: false })
+        .limit(240),
+    ]);
+    if (!g.error) setGlucose((g.data ?? []) as GlucoseReading[]);
+    if (!m.error) setTodayMealCount((m.data ?? []).length);
+    if (!profile.error) setGlp1Mode(Boolean((profile.data as any)?.glp1_mode));
+    if (!meals.error) {
+      const rows = (meals.data ?? []) as Array<{ created_at: string; parsed_json?: any }>;
+      const weekdayCounts = Array.from({ length: 7 }, () => 0);
+      rows.forEach((r) => {
+        const wd = new Date(r.created_at).getDay();
+        weekdayCounts[wd] += 1;
+      });
+      const friday = weekdayCounts[5];
+      const avgOthers = weekdayCounts.filter((_, i) => i !== 5).reduce((a, b) => a + b, 0) / 6;
+      if (friday > 0 && friday < avgOthers * 0.65) {
+        setWeekPattern("Pattern memory: every Friday you deviate from your plan. Pre-plan a flexible Friday dinner swap.");
+      } else {
+        setWeekPattern("Pattern memory: this week looks stable. Keep the same meal timing windows.");
+      }
 
-  const pulse = usePulse(Boolean(recording) || speaking || busy);
-
-  useEffect(() => {
-    let mounted = true;
-    async function checkProactive() {
-      try {
-        const { data, error } = await supabase.functions.invoke("voice-agent", {
-          body: { transcript: "status check" },
-        });
-        if (error || !mounted) return;
-        const payload = data as AgentResponse;
-        if (payload.proactivePrompt) setProactive(payload.proactivePrompt);
-      } catch {
-        // no-op
+      const latestProtein = Number(rows[0]?.parsed_json?.macros?.proteinG ?? 0);
+      const profileGlp = Boolean((profile.data as any)?.glp1_mode);
+      if (profileGlp && latestProtein > 0 && latestProtein < 25) {
+        setProteinAlert(
+          "Low protein detected. GLP-1 users need 30g+ per meal to prevent muscle loss. Swap suggestion: add Greek yogurt or chicken.",
+        );
+      } else {
+        setProteinAlert(null);
       }
     }
-    void checkProactive();
-    const id = setInterval(() => {
-      void checkProactive();
-    }, 15 * 60 * 1000);
-    return () => {
-      mounted = false;
-      clearInterval(id);
-    };
+    if (!recentGlucose.error) {
+      const rows = (recentGlucose.data ?? []) as Array<{ mg_dl: number; ts: string }>;
+      const hourBuckets: Record<number, number[]> = {};
+      rows.forEach((r) => {
+        const h = new Date(r.ts).getHours();
+        if (!hourBuckets[h]) hourBuckets[h] = [];
+        hourBuckets[h].push(r.mg_dl);
+      });
+      let bestHour = -1;
+      let bestAvg = -Infinity;
+      Object.entries(hourBuckets).forEach(([h, vals]) => {
+        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+        if (avg > bestAvg) {
+          bestAvg = avg;
+          bestHour = Number(h);
+        }
+      });
+      if (bestHour >= 0) {
+        const end = (bestHour + 2) % 24;
+        setTimingInsight(
+          `Meal timing intelligence: your highest spike window is around ${String(bestHour).padStart(2, "0")}:00-${String(end).padStart(2, "0")}:00. Plan lower-glycemic meals here.`,
+        );
+      }
+    }
+    if (!p.error && p.data) {
+      const plan = p.data as MealPlanRow;
+      const day = plan.plan_json?.days?.find((d) => d.date === new Date().toISOString().slice(0, 10)) ?? plan.plan_json?.days?.[0];
+      setNextMeal(day?.meals?.[0]?.title ?? "Generate today's meals");
+    }
+  }
+
+  useEffect(() => {
+    void load();
   }, []);
 
-  async function beginRecording() {
-    if (busy || recording) return;
-    const perm = await Audio.requestPermissionsAsync();
-    if (!perm.granted) {
-      setStatus("Mic permission required");
+  useEffect(() => {
+    if (!isFocused) return;
+    void load();
+    const id = setInterval(() => {
+      void load();
+    }, 12000);
+    return () => clearInterval(id);
+  }, [isFocused]);
+
+  const level = glucose[0]?.mg_dl ?? 0;
+  const prev = glucose[1]?.mg_dl ?? level;
+  const delta = level - prev;
+  const progress = Math.min(Math.max((level - 70) / 110, 0), 1);
+  const trend = useMemo(() => glucose.slice(0, 12).reverse().map((r) => r.mg_dl), [glucose]);
+
+  async function toggleGlp1() {
+    if (glpBusy) return;
+    setGlpBusy(true);
+    const next = !glp1Mode;
+    const { data: userData } = await supabase.auth.getUser();
+    const uid = userData.user?.id;
+    if (!uid) {
+      setGlpBusy(false);
       return;
     }
-    await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-    const rec = new Audio.Recording();
-    await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-    await rec.startAsync();
-    setRecording(rec);
-    setStatus("Listening...");
-  }
-
-  async function endRecordingAndRun() {
-    if (!recording || busy) return;
-    setBusy(true);
-    try {
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
-      setRecording(null);
-      if (!uri) throw new Error("No audio recorded");
-
-      const { data: userData } = await supabase.auth.getUser();
-      const uid = userData.user?.id;
-      if (!uid) throw new Error("Not signed in");
-
-      const path = `${uid}/${Date.now()}-agent.m4a`;
-      const fileRes = await fetch(uri);
-      const blob = await fileRes.blob();
-      const { error: upErr } = await supabase.storage.from("meal-images").upload(path, blob, {
-        contentType: "audio/m4a",
-        upsert: true,
-      });
-      if (upErr) throw upErr;
-
-      setStatus("Transcribing...");
-      const { data: tData, error: tErr } = await supabase.functions.invoke("transcribe-meal-audio", {
-        body: { storage_path: path },
-      });
-      if (tErr) throw tErr;
-      const transcript = (tData as { text?: string }).text?.trim();
-      if (!transcript) throw new Error("Could not transcribe audio");
-
-      setStatus("Thinking...");
-      const { data: aData, error: aErr } = await supabase.functions.invoke("voice-agent", {
-        body: { transcript },
-      });
-      if (aErr) throw aErr;
-      const payload = aData as AgentResponse;
-
-      setLastReply(payload.replyText || "Done.");
-      setActions(payload.actions ?? []);
-      setProactive(payload.proactivePrompt ?? null);
-
-      if (payload.audioBase64) {
-        setStatus("Speaking...");
-        setSpeaking(true);
-        const sound = new Audio.Sound();
-        const dataUri = `data:audio/mpeg;base64,${payload.audioBase64}`;
-        await sound.loadAsync({ uri: dataUri });
-        await sound.playAsync();
-        sound.setOnPlaybackStatusUpdate((s) => {
-          if (!s.isLoaded || !s.didJustFinish) return;
-          setSpeaking(false);
-          setStatus("Ready");
-          void sound.unloadAsync();
-        });
-      } else {
-        setStatus("Ready");
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setStatus(`Error: ${msg}`);
-      setRecording(null);
-      setSpeaking(false);
-    } finally {
-      setBusy(false);
+    const { error } = await supabase.from("profiles").update({ glp1_mode: next }).eq("id", uid);
+    setGlpBusy(false);
+    if (error) {
+      Alert.alert("GLP-1 mode", error.message);
+      return;
     }
+    setGlp1Mode(next);
+    const msg = next
+      ? "Protein targets maximized to prevent muscle loss. Portion sizes reduced."
+      : "GLP-1 mode off. Balanced metabolic targets restored.";
+    if (Platform.OS === "android") ToastAndroid.show(msg, ToastAndroid.LONG);
+    else Alert.alert("GLP-1 Mode", msg);
   }
-
-  const micLabel = useMemo(() => {
-    if (busy) return "Processing";
-    if (recording) return "Release to send";
-    return "Hold to talk";
-  }, [busy, recording]);
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
-      <Text style={styles.h1}>Voice Agent</Text>
-      <Text style={styles.lead}>
-        Speak naturally. I can log meals, check glucose status, and update your meal plan.
-      </Text>
-
-      <View style={styles.visualCard}>
-        <Animated.View style={[styles.pulseOuter, { transform: [{ scale: pulse }] }]}>
-          <View style={styles.pulseMiddle}>
-            <View style={styles.pulseInner} />
-          </View>
-        </Animated.View>
-        <Text style={styles.state}>{status}</Text>
+      <View style={styles.topRow}>
+        <Text style={styles.h1}>Dashboard</Text>
+        <Pressable
+          style={styles.avatarBtn}
+          onPress={() => {
+            void Haptics.selectionAsync();
+            router.push("/(tabs)/settings");
+          }}
+        >
+          <Ionicons name="person-outline" size={18} color={theme.colors.text} />
+        </Pressable>
       </View>
 
-      {proactive ? (
-        <View style={styles.proactive}>
-          <Text style={styles.proactiveTitle}>Proactive prompt</Text>
-          <Text style={styles.proactiveText}>{proactive}</Text>
+      <Text style={styles.sub}>METABOLIC STATUS + PLAN EXECUTION</Text>
+
+      <View style={styles.panel}>
+        <View style={styles.panelHeading}>
+          <Ionicons name="pulse-outline" size={14} color={theme.colors.textMuted} />
+          <Text style={styles.panelTitle}>Current Glucose</Text>
+        </View>
+        <View style={styles.glucoseRow}>
+          <Text style={styles.glucoseValue}>{level}</Text>
+          <Text style={styles.glucoseUnit}>mg/dL</Text>
+          <Text style={[styles.delta, { color: delta > 0 ? theme.colors.accent : theme.colors.text }]}>
+            {delta >= 0 ? "+" : ""}
+            {delta}
+          </Text>
+        </View>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+        </View>
+        <Text style={styles.deltaHint}>
+          Change vs previous reading: {delta >= 0 ? "+" : ""}
+          {delta} mg/dL
+        </Text>
+      </View>
+
+      <View style={styles.grid}>
+        <View style={styles.tile}>
+          <Text style={styles.tileLabel}>Today Plan</Text>
+          <Text style={styles.tileHead}>{todayMealCount} meals logged</Text>
+          <Text style={styles.tileBody}>Keep consistency for lower spikes through the day.</Text>
+        </View>
+        <View style={styles.tile}>
+          <View style={styles.glpRow}>
+            <Text style={styles.tileLabel}>GLP-1 Mode</Text>
+            <Pressable style={[styles.glpBtn, glp1Mode && styles.glpBtnOn]} onPress={toggleGlp1} disabled={glpBusy}>
+              <Text style={styles.glpText}>{glpBusy ? "..." : glp1Mode ? "ON" : "OFF"}</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.tileHead}>Plan focus</Text>
+          <Text style={styles.tileBody}>{nextMeal}</Text>
+        </View>
+      </View>
+
+      <View style={styles.planPanel}>
+        <View style={styles.panelHeading}>
+          <Ionicons name="analytics-outline" size={14} color={theme.colors.textMuted} />
+          <Text style={styles.panelTitle}>Micro Trend</Text>
+        </View>
+        <View style={styles.sparkWrap}>
+          {trend.map((v, i) => (
+            <View key={`${v}-${i}`} style={[styles.sparkBar, { height: 10 + Math.max(v - 70, 0) * 0.6 }]} />
+          ))}
+        </View>
+        <Pressable
+          style={styles.linkBtn}
+          onPress={() => {
+            void Haptics.selectionAsync();
+            router.push("/(tabs)/history");
+          }}
+        >
+          <Text style={styles.linkText}>Open full history + graphs</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.planPanel}>
+        <View style={styles.panelHeading}>
+          <Ionicons name="restaurant-outline" size={14} color={theme.colors.textMuted} />
+          <Text style={styles.panelTitle}>Adaptive Plan Snapshot</Text>
+        </View>
+        <View style={styles.rowLine}><Text style={styles.mono}>08:00</Text><Text style={styles.lineText}>Greek yogurt, chia, berries</Text></View>
+        <View style={styles.rowLine}><Text style={styles.mono}>12:30</Text><Text style={styles.lineText}>Chicken quinoa bowl</Text></View>
+        <View style={styles.rowLine}><Text style={styles.mono}>16:30</Text><Text style={styles.lineText}>Almond snack</Text></View>
+        <View style={styles.rowLine}><Text style={styles.mono}>19:30</Text><Text style={styles.lineText}>Salmon + greens</Text></View>
+      </View>
+
+      <View style={styles.planPanel}>
+        <View style={styles.panelHeading}>
+          <Ionicons name="time-outline" size={14} color={theme.colors.textMuted} />
+          <Text style={styles.panelTitle}>Timing Intelligence</Text>
+        </View>
+        <Text style={styles.lineText}>{timingInsight}</Text>
+      </View>
+
+      <View style={styles.planPanel}>
+        <View style={styles.panelHeading}>
+          <Ionicons name="repeat-outline" size={14} color={theme.colors.textMuted} />
+          <Text style={styles.panelTitle}>Pattern Memory</Text>
+        </View>
+        <Text style={styles.lineText}>{weekPattern}</Text>
+      </View>
+
+      {proteinAlert ? (
+        <View style={[styles.planPanel, { borderColor: theme.colors.text }]}>
+          <Text style={styles.panelTitle}>GLP-1 Alert</Text>
+          <Text style={styles.lineText}>⚠️ {proteinAlert}</Text>
         </View>
       ) : null}
 
       <Pressable
-        style={[styles.micBtn, (busy || speaking) && styles.micBtnDisabled]}
-        onPressIn={beginRecording}
-        onPressOut={endRecordingAndRun}
-        disabled={busy || speaking}
+        style={styles.voiceAgentBtn}
+        onPress={() => {
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          router.push("/(tabs)/agent");
+        }}
       >
-        <Text style={styles.micText}>{micLabel}</Text>
+        <Text style={styles.voiceAgentText}>Open Voice Agent</Text>
       </Pressable>
 
-      {(busy || speaking) ? <ActivityIndicator color="#1b7a5c" /> : null}
-
-      <View style={styles.replyCard}>
-        <Text style={styles.replyTitle}>Agent reply</Text>
-        <Text style={styles.replyBody}>{lastReply}</Text>
+      <View style={styles.quickRow}>
+        <Pressable style={styles.quickBtn} onPress={() => router.push("/(tabs)/plan")}>
+          <Ionicons name="calendar-outline" size={16} color={theme.colors.text} />
+          <Text style={styles.quickText}>Open Plan</Text>
+        </Pressable>
+        <Pressable style={styles.quickBtn} onPress={() => router.push("/(tabs)/history")}>
+          <Ionicons name="bar-chart-outline" size={16} color={theme.colors.text} />
+          <Text style={styles.quickText}>Open History</Text>
+        </Pressable>
       </View>
-
-      {actions.length > 0 ? (
-        <View style={styles.actionsCard}>
-          <Text style={styles.replyTitle}>Actions executed</Text>
-          {actions.map((a, idx) => (
-            <Text key={`${a.tool}-${idx}`} style={styles.actionItem}>
-              • {a.tool}: {a.ok ? "ok" : "failed"} — {a.detail}
-            </Text>
-          ))}
-        </View>
-      ) : null}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#0f1714" },
-  content: { padding: 20, gap: 14, paddingBottom: 40 },
-  h1: { fontSize: 28, fontWeight: "700", color: "#eaf7f1" },
-  lead: { fontSize: 15, color: "#b8cbc3", lineHeight: 22 },
-  visualCard: {
-    backgroundColor: "#151f1b",
+  root: { flex: 1, backgroundColor: theme.colors.bg },
+  content: { padding: 18, paddingBottom: 120, gap: 14 },
+  topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  h1: { fontSize: 32, fontWeight: "900", letterSpacing: -1, color: theme.colors.text },
+  avatarBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 1,
-    borderColor: "#24342e",
-    borderRadius: 18,
-    padding: 20,
-    alignItems: "center",
-    gap: 12,
-  },
-  pulseOuter: {
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    backgroundColor: "rgba(27,122,92,0.18)",
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.bgPure,
     alignItems: "center",
     justifyContent: "center",
   },
-  pulseMiddle: {
-    width: 122,
-    height: 122,
-    borderRadius: 61,
-    backgroundColor: "rgba(27,122,92,0.28)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pulseInner: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    backgroundColor: "#1b7a5c",
-  },
-  state: { color: "#d7ebe3", fontSize: 14, fontWeight: "600" },
-  proactive: {
-    backgroundColor: "#172520",
-    borderRadius: 14,
+  sub: { fontSize: 11, fontWeight: "800", letterSpacing: 1.2, color: theme.colors.textMuted },
+  panel: {
+    backgroundColor: theme.colors.bgPure,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
     padding: 14,
+    gap: 10,
+  },
+  panelTitle: { fontSize: 13, fontWeight: "800", color: theme.colors.textMuted, textTransform: "uppercase" },
+  panelHeading: { flexDirection: "row", alignItems: "center", gap: 6 },
+  glucoseRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
+  glucoseValue: { fontFamily: "monospace", fontSize: 42, fontWeight: "800", color: theme.colors.text, letterSpacing: -0.5 },
+  glucoseUnit: { fontFamily: "monospace", fontSize: 14, marginBottom: 8, color: theme.colors.textMuted },
+  delta: { fontFamily: "monospace", fontSize: 20, marginLeft: "auto", marginBottom: 7, fontWeight: "800" },
+  progressTrack: { height: 8, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 4 },
+  progressFill: { height: "100%", backgroundColor: theme.colors.accent },
+  deltaHint: { fontSize: 12, color: theme.colors.textMuted, fontFamily: "monospace" },
+  grid: { flexDirection: "row", gap: 10 },
+  tile: {
+    flex: 1,
+    backgroundColor: theme.colors.bgPure,
     borderWidth: 1,
-    borderColor: "#29443a",
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    padding: 12,
     gap: 6,
   },
-  proactiveTitle: { color: "#9fe3c8", fontWeight: "700", fontSize: 13, textTransform: "uppercase" },
-  proactiveText: { color: "#d7ebe3", fontSize: 15, lineHeight: 22 },
-  micBtn: {
-    backgroundColor: "#1b7a5c",
-    borderRadius: 14,
-    paddingVertical: 16,
+  tileLabel: { fontSize: 11, fontWeight: "800", textTransform: "uppercase", color: theme.colors.textMuted },
+  tileHead: { fontSize: 18, fontWeight: "800", color: theme.colors.text, letterSpacing: -0.4 },
+  tileBody: { fontSize: 13, color: theme.colors.textMuted, lineHeight: 18 },
+  glpRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  glpBtn: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: theme.colors.bgPure,
+  },
+  glpBtnOn: { borderColor: theme.colors.text, backgroundColor: theme.colors.accent },
+  glpText: { fontSize: 11, fontWeight: "900", color: theme.colors.text, fontFamily: "monospace" },
+  planPanel: {
+    backgroundColor: theme.colors.bgPure,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    padding: 14,
+    gap: 8,
+  },
+  rowLine: { flexDirection: "row", gap: 12, alignItems: "center" },
+  mono: { fontFamily: "monospace", fontSize: 14, width: 52, color: theme.colors.text },
+  lineText: { fontSize: 14, color: theme.colors.textMuted, fontWeight: "600" },
+  sparkWrap: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    minHeight: 76,
+    padding: 8,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 4,
+  },
+  sparkBar: { width: 10, borderRadius: 2, backgroundColor: theme.colors.accent },
+  linkBtn: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 6,
+    paddingVertical: 8,
     alignItems: "center",
   },
-  micBtnDisabled: { opacity: 0.7 },
-  micText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  replyCard: {
-    backgroundColor: "#151f1b",
+  linkText: { fontSize: 13, fontWeight: "700", color: theme.colors.text },
+  voiceAgentBtn: {
+    backgroundColor: theme.colors.accent,
     borderWidth: 1,
-    borderColor: "#24342e",
-    borderRadius: 14,
-    padding: 14,
-    gap: 8,
+    borderColor: theme.colors.text,
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: "center",
   },
-  actionsCard: {
-    backgroundColor: "#151f1b",
+  voiceAgentText: { color: theme.colors.text, fontWeight: "800" },
+  quickRow: { flexDirection: "row", gap: 10 },
+  quickBtn: {
+    flex: 1,
+    backgroundColor: theme.colors.bgPure,
     borderWidth: 1,
-    borderColor: "#24342e",
-    borderRadius: 14,
-    padding: 14,
-    gap: 8,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
   },
-  replyTitle: { color: "#9fe3c8", fontWeight: "700", fontSize: 13, textTransform: "uppercase" },
-  replyBody: { color: "#eaf7f1", fontSize: 15, lineHeight: 22 },
-  actionItem: { color: "#c6dad2", fontSize: 13, lineHeight: 20 },
+  quickText: { color: theme.colors.text, fontWeight: "800" },
 });

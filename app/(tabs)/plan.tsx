@@ -10,12 +10,16 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
 import { supabase } from "../../lib/supabase";
 import type { MealPlanJson, MealPlanRow } from "../../lib/types";
+import { theme } from "../../lib/theme";
 
 type Meal = MealPlanJson["days"][number]["meals"][number];
 
 export default function PlanScreen() {
+  const router = useRouter();
   const [row, setRow] = useState<MealPlanRow | null>(null);
   const [plan, setPlan] = useState<MealPlanJson | null>(null);
   const [view, setView] = useState<"week" | "day">("week");
@@ -102,6 +106,21 @@ export default function PlanScreen() {
 
       setSwapTarget(null);
       setSwapReason("");
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        "Swap complete",
+        `Not feeling ${swapTarget.mealObj.title}? I swapped it for ${alt.title} to match your metabolic targets.\n\nWant me to update grocery list guidance via Voice Agent?`,
+        [
+          { text: "Not now", style: "cancel" },
+          {
+            text: "Open Voice Agent",
+            onPress: () => {
+              const prompt = `Update my grocery guidance after swapping ${swapTarget.mealObj.title} with ${alt.title}`;
+              router.push({ pathname: "/(tabs)/agent", params: { prompt } });
+            },
+          },
+        ],
+      );
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       Alert.alert("Swap", msg);
@@ -246,7 +265,7 @@ export default function PlanScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#eef6f2" },
+  root: { flex: 1, backgroundColor: theme.colors.bg },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   toolbar: {
     flexDirection: "row",
@@ -254,93 +273,118 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: "#f6faf7",
+    backgroundColor: theme.colors.bgPure,
     borderBottomWidth: 1,
-    borderBottomColor: "#d9e8df",
+    borderBottomColor: theme.colors.border,
   },
   toggle: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: "#dfece5",
+    backgroundColor: theme.colors.bgPure,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
-  toggleOn: { backgroundColor: "#fff", borderWidth: 1, borderColor: "#c5d6cc" },
-  toggleText: { fontWeight: "600", color: "#4a6a5e" },
-  toggleTextOn: { color: "#0d3d2c" },
+  toggleOn: { backgroundColor: theme.colors.accent, borderWidth: 1, borderColor: theme.colors.text },
+  toggleText: { fontWeight: "700", color: theme.colors.textMuted },
+  toggleTextOn: { color: theme.colors.text, fontWeight: "900" },
   gen: {
     marginLeft: "auto",
-    backgroundColor: "#1b7a5c",
+    backgroundColor: theme.colors.accent,
+    borderWidth: 1,
+    borderColor: theme.colors.text,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 10,
   },
-  genText: { color: "#fff", fontWeight: "700" },
+  genText: { color: theme.colors.text, fontWeight: "900" },
   scroll: { padding: 16, paddingBottom: 40, gap: 12 },
   emptyWrap: { padding: 24, gap: 12 },
-  emptyTitle: { fontSize: 22, fontWeight: "700", color: "#0d3d2c" },
-  emptyBody: { fontSize: 15, color: "#3d534a", lineHeight: 22 },
+  emptyTitle: { fontSize: 22, fontWeight: "900", color: theme.colors.text },
+  emptyBody: { fontSize: 15, color: theme.colors.textMuted, lineHeight: 22 },
   primary: {
-    backgroundColor: "#1b7a5c",
+    backgroundColor: theme.colors.accent,
+    borderWidth: 1,
+    borderColor: theme.colors.text,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
   },
-  primaryText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  primaryText: { color: theme.colors.text, fontWeight: "900", fontSize: 16 },
   dayCard: {
-    backgroundColor: "#fff",
+    backgroundColor: theme.colors.bgPure,
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: "#d9e8df",
+    borderColor: theme.colors.border,
     gap: 10,
   },
-  dayTitle: { fontSize: 16, fontWeight: "800", color: "#0d3d2c" },
+  dayTitle: { fontSize: 16, fontWeight: "900", color: theme.colors.text },
   meal: {
     borderTopWidth: 1,
-    borderTopColor: "#edf3f0",
+    borderTopColor: theme.colors.border,
     paddingTop: 10,
     gap: 4,
   },
   mealHead: { flexDirection: "row", justifyContent: "space-between" },
-  slot: { fontSize: 12, fontWeight: "700", color: "#1b7a5c", textTransform: "capitalize" },
-  score: { fontSize: 12, color: "#5c6f66" },
-  mealTitle: { fontSize: 17, fontWeight: "700", color: "#14261f" },
-  meta: { fontSize: 13, color: "#5c6f66" },
-  ing: { fontSize: 13, color: "#3d534a" },
-  swapBtn: { alignSelf: "flex-start", marginTop: 6 },
-  swapText: { color: "#1b7a5c", fontWeight: "700" },
+  slot: { fontSize: 12, fontWeight: "900", color: theme.colors.text, textTransform: "capitalize" },
+  score: { fontSize: 12, color: theme.colors.textMuted },
+  mealTitle: { fontSize: 17, fontWeight: "800", color: theme.colors.text },
+  meta: { fontSize: 13, color: theme.colors.textMuted },
+  ing: { fontSize: 13, color: theme.colors.textMuted },
+  swapBtn: {
+    alignSelf: "flex-start",
+    marginTop: 6,
+    backgroundColor: theme.colors.accent,
+    borderWidth: 1,
+    borderColor: theme.colors.text,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    shadowColor: theme.colors.accent,
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  swapText: { color: theme.colors.text, fontWeight: "900" },
   dayPicker: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   dayChip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: "#dfece5",
+    backgroundColor: theme.colors.bgPure,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
-  dayChipOn: { backgroundColor: "#1b7a5c" },
-  dayChipText: { fontWeight: "600", color: "#2f4a3f" },
-  dayChipTextOn: { color: "#fff" },
+  dayChipOn: { backgroundColor: theme.colors.accent, borderColor: theme.colors.text },
+  dayChipText: { fontWeight: "700", color: theme.colors.textMuted },
+  dayChipTextOn: { color: theme.colors.text, fontWeight: "900" },
   modalBg: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
+    backgroundColor: theme.colors.overlay,
     justifyContent: "center",
     padding: 24,
   },
   modalCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
+    backgroundColor: theme.colors.bgPure,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     padding: 18,
     gap: 10,
   },
-  modalTitle: { fontSize: 20, fontWeight: "800", color: "#0d3d2c" },
-  modalSub: { fontSize: 14, color: "#4a5c54" },
+  modalTitle: { fontSize: 20, fontWeight: "900", color: theme.colors.text },
+  modalSub: { fontSize: 14, color: theme.colors.textMuted },
   input: {
     borderWidth: 1,
-    borderColor: "#c5d6cc",
+    borderColor: theme.colors.border,
     borderRadius: 12,
     padding: 12,
     fontSize: 16,
+    color: theme.colors.text,
+    backgroundColor: theme.colors.bgPure,
   },
   modalRow: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 8 },
   secondary: { paddingVertical: 12, paddingHorizontal: 14 },
-  secondaryText: { color: "#1b7a5c", fontWeight: "700" },
+  secondaryText: { color: theme.colors.text, fontWeight: "700" },
 });

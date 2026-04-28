@@ -43,3 +43,32 @@ export type MetabolicInsight = {
   body: string;
   created_at: string;
 };
+
+export type MealLog = {
+  id: string;
+  created_at: string;
+  ai_summary: string | null;
+  scan_mode: string | null;
+  image_path?: string | null;
+  raw_transcript?: string | null;
+  parsed_json?: {
+    foods?: Array<{ name?: string; estimatedGrams?: number }>;
+    macros?: { kcal?: number; proteinG?: number; carbG?: number; fatG?: number };
+    summary?: string;
+    [key: string]: unknown;
+  } | null;
+};
+
+export type AgentEvent = {
+  id: string;
+  created_at: string;
+  transcript: string;
+  reply_text: string;
+  actions_json:
+    | Array<{
+        tool: string;
+        ok: boolean;
+        detail: string;
+      }>
+    | null;
+};

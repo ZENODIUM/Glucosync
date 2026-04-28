@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -10,6 +10,7 @@ import {
 import { useRouter } from "expo-router";
 import { supabase } from "../lib/supabase";
 import { useSession } from "../lib/session";
+import { theme } from "../lib/theme";
 
 const PREFS = [
   "Balanced",
@@ -130,7 +131,7 @@ export default function OnboardingScreen() {
               {sensorDone ? (
                 <Text style={styles.buttonText}>Sensor paired (simulated)</Text>
               ) : pairBusy ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={theme.colors.text} />
               ) : (
                 <Text style={styles.buttonText}>Simulate sensor pairing</Text>
               )}
@@ -179,7 +180,7 @@ export default function OnboardingScreen() {
               disabled={finishBusy}
             >
               {finishBusy ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={theme.colors.text} />
               ) : (
                 <Text style={styles.buttonText}>Enter GlucoSync</Text>
               )}
@@ -192,37 +193,37 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#eef6f2" },
-  scroll: { padding: 24, paddingTop: 56, gap: 16 },
-  kicker: { color: "#4a6a5e", fontSize: 14, fontWeight: "600" },
-  title: { fontSize: 24, fontWeight: "700", color: "#0d3d2c", marginBottom: 8 },
-  body: { fontSize: 15, color: "#3d534a", lineHeight: 22 },
+  root: { flex: 1, backgroundColor: theme.colors.bg },
+  scroll: { padding: 18, paddingTop: 56, gap: 14, paddingBottom: 40 },
+  kicker: { color: theme.colors.textMuted, fontSize: 12, fontWeight: "800", letterSpacing: 1.1, textTransform: "uppercase" },
+  title: { fontSize: 28, fontWeight: "900", letterSpacing: -0.8, color: theme.colors.text, marginBottom: 6 },
+  body: { fontSize: 14, color: theme.colors.textMuted, lineHeight: 20 },
   block: { gap: 14 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   chip: {
     borderWidth: 1,
-    borderColor: "#c5d6cc",
+    borderColor: theme.colors.border,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: "#fff",
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.bgPure,
   },
-  chipOn: { borderColor: "#1b7a5c", backgroundColor: "#d9f2e8" },
-  chipText: { color: "#2b3f37", fontSize: 15 },
-  chipTextOn: { color: "#0d3d2c", fontWeight: "600" },
+  chipOn: { borderColor: theme.colors.text, backgroundColor: theme.colors.accent },
+  chipText: { color: theme.colors.text, fontSize: 14, fontWeight: "700" },
+  chipTextOn: { color: theme.colors.text, fontWeight: "900" },
   toggleRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 16,
-    borderRadius: 14,
+    borderRadius: theme.radius.md,
     borderWidth: 1,
-    borderColor: "#c5d6cc",
-    backgroundColor: "#fff",
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.bgPure,
   },
-  toggleRowOn: { borderColor: "#1b7a5c", backgroundColor: "#e9f7f1" },
-  toggleLabel: { fontSize: 16, color: "#0d3d2c", fontWeight: "600" },
-  toggleValue: { fontSize: 15, color: "#1b7a5c", fontWeight: "700" },
+  toggleRowOn: { borderColor: theme.colors.text, backgroundColor: theme.colors.accent },
+  toggleLabel: { fontSize: 15, color: theme.colors.text, fontWeight: "800" },
+  toggleValue: { fontSize: 13, color: theme.colors.text, fontWeight: "900", fontFamily: "monospace" },
   nav: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -232,16 +233,18 @@ const styles = StyleSheet.create({
   },
   spacer: { flex: 1 },
   button: {
-    backgroundColor: "#1b7a5c",
+    backgroundColor: theme.colors.accent,
+    borderWidth: 1,
+    borderColor: theme.colors.text,
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 12,
+    borderRadius: theme.radius.md,
     minWidth: 140,
     alignItems: "center",
   },
-  buttonGhost: { backgroundColor: "#3c8f73" },
+  buttonGhost: { opacity: 0.75 },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  buttonText: { color: theme.colors.text, fontSize: 16, fontWeight: "900" },
   secondary: { paddingVertical: 12, paddingHorizontal: 8 },
-  secondaryText: { color: "#1b7a5c", fontSize: 16, fontWeight: "600" },
+  secondaryText: { color: theme.colors.text, fontSize: 15, fontWeight: "800" },
 });

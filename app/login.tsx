@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -9,13 +9,24 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { supabase } from "../lib/supabase";
+import { theme } from "../lib/theme";
+import { useSession } from "../lib/session";
 
 export default function LoginScreen() {
+  const router = useRouter();
+  const { session } = useSession();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (session) {
+      router.replace("/");
+    }
+  }, [router, session]);
 
   async function sendCode() {
     const trimmed = email.trim().toLowerCase();
@@ -61,6 +72,7 @@ export default function LoginScreen() {
       });
       if (!error) {
         setBusy(false);
+        router.replace("/");
         return;
       }
       lastError = error.message;
@@ -78,7 +90,7 @@ export default function LoginScreen() {
       <View style={styles.card}>
         <Text style={styles.title}>GlucoSync</Text>
         <Text style={styles.sub}>
-          Sign in with email OTP. We send a one-time code and you paste it here.
+          One email flow for both sign in and register. We send a one-time code and you paste it here.
         </Text>
 
         <TextInput
@@ -86,7 +98,7 @@ export default function LoginScreen() {
           autoCapitalize="none"
           keyboardType="email-address"
           placeholder="you@email.com"
-          placeholderTextColor="#7a8a82"
+          placeholderTextColor={theme.colors.textMuted}
           value={email}
           onChangeText={setEmail}
           editable={!sent}
@@ -107,7 +119,7 @@ export default function LoginScreen() {
               style={styles.input}
               keyboardType="number-pad"
               placeholder="123456"
-              placeholderTextColor="#7a8a82"
+              placeholderTextColor={theme.colors.textMuted}
               value={code}
               onChangeText={setCode}
               maxLength={10}
@@ -117,7 +129,7 @@ export default function LoginScreen() {
               onPress={verifyCode}
               disabled={busy}
             >
-              <Text style={styles.buttonText}>{busy ? "Verifying…" : "Verify and sign in"}</Text>
+              <Text style={styles.buttonText}>{busy ? "Verifying…" : "Verify and continue"}</Text>
             </Pressable>
             <Pressable
               onPress={() => {
@@ -135,34 +147,37 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#eef6f2", justifyContent: "center", padding: 24 },
+  root: { flex: 1, backgroundColor: theme.colors.bg, justifyContent: "center", padding: 24 },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
+    backgroundColor: theme.colors.bgPure,
+    borderRadius: theme.radius.lg,
     padding: 24,
     gap: 14,
     borderWidth: 1,
-    borderColor: "#d9e8df",
+    borderColor: theme.colors.border,
   },
-  title: { fontSize: 28, fontWeight: "700", color: "#0d3d2c" },
-  sub: { fontSize: 15, color: "#3d534a", lineHeight: 22 },
+  title: { fontSize: 30, fontWeight: "900", letterSpacing: -0.8, color: theme.colors.text },
+  sub: { fontSize: 14, color: theme.colors.textMuted, lineHeight: 22 },
   input: {
     borderWidth: 1,
-    borderColor: "#c5d6cc",
-    borderRadius: 12,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: "#0d1f18",
+    color: theme.colors.text,
+    backgroundColor: theme.colors.bgPure,
   },
   button: {
-    backgroundColor: "#1b7a5c",
+    backgroundColor: theme.colors.accent,
+    borderWidth: 1,
+    borderColor: theme.colors.text,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: theme.radius.md,
     alignItems: "center",
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  note: { fontSize: 14, color: "#2f5c4a", lineHeight: 20 },
-  link: { color: "#1b7a5c", fontSize: 15, textAlign: "center", marginTop: 4 },
+  buttonText: { color: theme.colors.text, fontSize: 16, fontWeight: "800" },
+  note: { fontSize: 14, color: theme.colors.textMuted, lineHeight: 20 },
+  link: { color: theme.colors.text, fontSize: 15, textAlign: "center", marginTop: 4, fontWeight: "700" },
 });
