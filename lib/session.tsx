@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 import {
   createContext,
   useCallback,
@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { Linking } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import type { Profile } from "./types";
@@ -19,6 +20,15 @@ type SessionState = {
 };
 
 const Ctx = createContext<SessionState | undefined>(undefined);
+
+function extractParams(url: string): URLSearchParams {
+  const query = url.includes("?") ? url.split("?")[1].split("#")[0] : "";
+  const hash = url.includes("#") ? url.split("#")[1] : "";
+  const merged = new URLSearchParams(query);
+  const hashParams = new URLSearchParams(hash);
+  hashParams.forEach((value, key) => merged.set(key, value));
+  return merged;
+}
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -40,22 +50,49 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
+
+    async function handleUrl(url: string) {
+      const p = extractParams(url);
+      const access_token = p.get("access_token");
+      const refresh_token = p.get("refresh_token");
+      const code = p.get("code");
+
+      if (access_token && refresh_token) {
+        await supabase.auth.setSession({ access_token, refresh_token });
+      } else if (code) {
+        await supabase.auth.exchangeCodeForSession(code);
+      }
+    }
+
+    async function init() {
+      const initialUrl = await Linking.getInitialURL();
+      if (initialUrl) await handleUrl(initialUrl);
+
+      const { data } = await supabase.auth.getSession();
       if (!mounted) return;
       setSession(data.session ?? null);
       if (data.session?.user) {
-        void loadProfile(data.session.user.id);
+        await loadProfile(data.session.user.id);
       }
       setLoading(false);
+    }
+
+    void init();
+
+    const deepLinkSub = Linking.addEventListener("url", ({ url }) => {
+      void handleUrl(url);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+
+    const { data: authSub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
       if (next?.user) void loadProfile(next.user.id);
       else setProfile(null);
     });
+
     return () => {
       mounted = false;
-      sub.subscription.unsubscribe();
+      deepLinkSub.remove();
+      authSub.subscription.unsubscribe();
     };
   }, [loadProfile]);
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -17,7 +17,7 @@ export default function LoginScreen() {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  async function sendMagicLink() {
+  async function sendCode() {
     const trimmed = email.trim().toLowerCase();
     if (!trimmed) {
       Alert.alert("Email required", "Enter the email you use for GlucoSync.");
@@ -40,19 +40,34 @@ export default function LoginScreen() {
     const trimmed = email.trim().toLowerCase();
     const c = code.trim();
     if (!trimmed || c.length < 6) {
-      Alert.alert("Check code", "Enter the 6-digit code from your email.");
+      Alert.alert("Check code", "Enter the code from your email.");
       return;
     }
+
     setBusy(true);
-    const { error } = await supabase.auth.verifyOtp({
-      email: trimmed,
-      token: c,
-      type: "email",
-    });
-    setBusy(false);
-    if (error) {
-      Alert.alert("Invalid code", error.message);
+
+    const attempts: Array<"email" | "magiclink" | "signup"> = [
+      "email",
+      "magiclink",
+      "signup",
+    ];
+
+    let lastError: string | null = null;
+    for (const type of attempts) {
+      const { error } = await supabase.auth.verifyOtp({
+        email: trimmed,
+        token: c,
+        type,
+      });
+      if (!error) {
+        setBusy(false);
+        return;
+      }
+      lastError = error.message;
     }
+
+    setBusy(false);
+    Alert.alert("Invalid code", lastError ?? "Code expired or invalid.");
   }
 
   return (
@@ -63,9 +78,9 @@ export default function LoginScreen() {
       <View style={styles.card}>
         <Text style={styles.title}>GlucoSync</Text>
         <Text style={styles.sub}>
-          Sign in with email. Supabase sends a one-time code; ensure your Auth email
-          template includes the OTP token so you can paste it here.
+          Sign in with email OTP. We send a one-time code and you paste it here.
         </Text>
+
         <TextInput
           style={styles.input}
           autoCapitalize="none"
@@ -76,10 +91,11 @@ export default function LoginScreen() {
           onChangeText={setEmail}
           editable={!sent}
         />
+
         {!sent ? (
           <Pressable
             style={[styles.button, busy && styles.buttonDisabled]}
-            onPress={sendMagicLink}
+            onPress={sendCode}
             disabled={busy}
           >
             <Text style={styles.buttonText}>{busy ? "Sending…" : "Send code"}</Text>
@@ -94,7 +110,7 @@ export default function LoginScreen() {
               placeholderTextColor="#7a8a82"
               value={code}
               onChangeText={setCode}
-              maxLength={8}
+              maxLength={10}
             />
             <Pressable
               style={[styles.button, busy && styles.buttonDisabled]}
@@ -103,7 +119,12 @@ export default function LoginScreen() {
             >
               <Text style={styles.buttonText}>{busy ? "Verifying…" : "Verify and sign in"}</Text>
             </Pressable>
-            <Pressable onPress={() => { setSent(false); setCode(""); }}>
+            <Pressable
+              onPress={() => {
+                setSent(false);
+                setCode("");
+              }}
+            >
               <Text style={styles.link}>Use a different email</Text>
             </Pressable>
           </>

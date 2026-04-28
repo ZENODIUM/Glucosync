@@ -1,15 +1,21 @@
+﻿import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { Text } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-function TabLabel({ label, focused }: { label: string; focused: boolean }) {
-  return (
-    <Text style={{ fontSize: 11, fontWeight: focused ? "700" : "500", color: focused ? "#1b7a5c" : "#6b7f76" }}>
-      {label}
-    </Text>
+function icon(name: keyof typeof Ionicons.glyphMap) {
+  return ({ color, size, focused }: { color: string; size: number; focused: boolean }) => (
+    <Ionicons
+      name={focused ? name : `${name}-outline` as keyof typeof Ionicons.glyphMap}
+      color={color}
+      size={size}
+    />
   );
 }
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+  const bottomPad = Math.max(insets.bottom, 10);
+
   return (
     <Tabs
       screenOptions={{
@@ -18,35 +24,57 @@ export default function TabsLayout() {
         headerTitleStyle: { fontWeight: "700" },
         tabBarActiveTintColor: "#1b7a5c",
         tabBarInactiveTintColor: "#6b7f76",
-        tabBarStyle: { backgroundColor: "#fff", borderTopColor: "#d9e8df" },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+        tabBarStyle: {
+          backgroundColor: "#fff",
+          borderTopColor: "#d9e8df",
+          borderTopWidth: 1,
+          height: 52 + bottomPad,
+          paddingTop: 6,
+          paddingBottom: bottomPad,
+        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
-          tabBarLabel: ({ focused }) => <TabLabel label="Home" focused={focused} />,
+          title: "Agent",
+          tabBarIcon: icon("radio"),
+        }}
+      />
+      <Tabs.Screen
+        name="status"
+        options={{
+          title: "Status",
+          tabBarIcon: icon("pulse"),
         }}
       />
       <Tabs.Screen
         name="lens"
         options={{
           title: "Lens",
-          tabBarLabel: ({ focused }) => <TabLabel label="Lens" focused={focused} />,
+          tabBarIcon: icon("camera"),
         }}
       />
       <Tabs.Screen
         name="plan"
         options={{
           title: "Plan",
-          tabBarLabel: ({ focused }) => <TabLabel label="Plan" focused={focused} />,
+          tabBarIcon: icon("calendar"),
         }}
       />
       <Tabs.Screen
         name="cart"
         options={{
           title: "Cart",
-          tabBarLabel: ({ focused }) => <TabLabel label="Cart" focused={focused} />,
+          tabBarIcon: icon("cart"),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: icon("settings"),
         }}
       />
     </Tabs>

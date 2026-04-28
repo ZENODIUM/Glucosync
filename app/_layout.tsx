@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+﻿import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SessionProvider } from "../lib/session";
 
