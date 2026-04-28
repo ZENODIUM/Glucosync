@@ -36,14 +36,23 @@ This build is intentionally scoped as an **MVP**: core flows are working end-to-
 
 ## Screenshots
 
-<img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.24%20(1).jpeg" alt="Dashboard" width="230" />
-<img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.24%20(2).jpeg" alt="Lens" width="230" />
-<img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.24%20(3).jpeg" alt="Voice Agent" width="230" />
-<img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.24%20(4).jpeg" alt="Plan" width="230" />
-<img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25%20(1).jpeg" alt="Cart" width="230" />
-<img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25%20(2).jpeg" alt="History" width="230" />
-<img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25%20(3).jpeg" alt="Settings" width="230" />
-<img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25.jpeg" alt="Onboarding/Login" width="230" />
+<table>
+  <tr>
+    <td align="center"><img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.24%20(1).jpeg" alt="Dashboard" width="210" /><br/>Dashboard</td>
+    <td align="center"><img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.24%20(2).jpeg" alt="Lens" width="210" /><br/>Lens</td>
+    <td align="center"><img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.24%20(3).jpeg" alt="Voice Agent" width="210" /><br/>Voice Agent</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.24%20(4).jpeg" alt="Plan" width="210" /><br/>Plan</td>
+    <td align="center"><img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25%20(1).jpeg" alt="Cart" width="210" /><br/>Cart</td>
+    <td align="center"><img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25%20(2).jpeg" alt="History" width="210" /><br/>History</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25%20(3).jpeg" alt="Settings" width="210" /><br/>Settings</td>
+    <td align="center"><img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25.jpeg" alt="Onboarding/Login" width="210" /><br/>Onboarding/Login</td>
+    <td></td>
+  </tr>
+</table>
 
 ## Tech Stack (what + why)
 
