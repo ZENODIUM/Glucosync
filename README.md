@@ -36,14 +36,14 @@ This build is intentionally scoped as an **MVP**: core flows are working end-to-
 
 ## Screenshots
 
-![Dashboard](screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.24%20(1).jpeg)
-![Lens](screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.24%20(2).jpeg)
-![Voice Agent](screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.24%20(3).jpeg)
-![Plan](screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.24%20(4).jpeg)
-![Cart](screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25%20(1).jpeg)
-![History](screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25%20(2).jpeg)
-![Settings](screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25%20(3).jpeg)
-![Onboarding/Login](screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25.jpeg)
+<img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.24%20(1).jpeg" alt="Dashboard" width="230" />
+<img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.24%20(2).jpeg" alt="Lens" width="230" />
+<img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.24%20(3).jpeg" alt="Voice Agent" width="230" />
+<img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.24%20(4).jpeg" alt="Plan" width="230" />
+<img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25%20(1).jpeg" alt="Cart" width="230" />
+<img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25%20(2).jpeg" alt="History" width="230" />
+<img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25%20(3).jpeg" alt="Settings" width="230" />
+<img src="screenshots/WhatsApp%20Image%202026-04-28%20at%2013.58.25.jpeg" alt="Onboarding/Login" width="230" />
 
 ## Tech Stack (what + why)
 
